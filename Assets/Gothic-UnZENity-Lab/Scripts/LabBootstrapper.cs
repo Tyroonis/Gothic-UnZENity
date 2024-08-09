@@ -10,33 +10,25 @@ using GUZ.Core.World;
 using GUZ.Lab.Handler;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.Serialization;
 
 namespace GUZ.Lab
 {
     [RequireComponent(typeof(TextureManager), typeof(FontManager))]
     public class LabBootstrapper : MonoBehaviour, IGlobalDataProvider, ICoroutineManager
     {
-        [field: FormerlySerializedAs("config")]
         [field: SerializeField]
         public GameConfiguration Config { get; private set; }
 
-        [FormerlySerializedAs("labMusicHandler")]
         public LabMusicHandler LabMusicHandler;
 
-        [FormerlySerializedAs("npcDialogHandler")]
         public LabNpcDialogHandler NpcDialogHandler;
 
-        [FormerlySerializedAs("lockableHandler")]
-        public LabLockableHandler LockableHandler;
+        public LabInteractableHandler InteractableHandler;
 
-        [FormerlySerializedAs("ladderLabHandler")]
         public LabLadderLabHandler LadderLabHandler;
 
-        [FormerlySerializedAs("vobHandAttachPointsLabHandler")]
-        public LabVobHandAttachPointsLabHandler VobHandAttachPointsLabHandler;
+        public LabVobItemHandler VobItemHandler;
 
-        [FormerlySerializedAs("labNpcAnimationHandler")]
         public LabNpcAnimationHandler LabNpcAnimationHandler;
 
         private XRDeviceSimulatorManager _deviceSimulatorManager;
@@ -56,7 +48,8 @@ namespace GUZ.Lab
         public TextureManager Textures => _textureManager;
         public FontManager Font => _fontManager;
         public StationaryLightsManager Lights => null;
-        public VobMeshCullingManager MeshCulling => null;
+        public VobMeshCullingManager VobMeshCulling => null;
+        public NpcMeshCullingManager NpcMeshCulling => null;
         public VobSoundCullingManager SoundCulling => null;
 
 
@@ -91,16 +84,16 @@ namespace GUZ.Lab
             _isBooted = true;
 
             var settings = _settings;
-            GuzBootstrapper.BootGothicUnZeNity(Config, settings.GothicIPath, settings.GothicILanguage);
+            GuzBootstrapper.BootGothicUnZeNity(Config, settings.GothicIPath);
 
             BootLab();
 
             LabNpcAnimationHandler.Bootstrap();
             LabMusicHandler.Bootstrap();
             NpcDialogHandler.Bootstrap();
-            LockableHandler.Bootstrap();
+            InteractableHandler.Bootstrap();
             LadderLabHandler.Bootstrap();
-            VobHandAttachPointsLabHandler.Bootstrap();
+            VobItemHandler.Bootstrap();
         }
 
         private void BootLab()

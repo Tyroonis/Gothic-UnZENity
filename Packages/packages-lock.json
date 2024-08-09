@@ -1,5 +1,14 @@
 {
   "dependencies": {
+    "com.domybest.mybox": {
+      "version": "https://github.com/Deadcows/MyBox.git",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {
+        "com.unity.ugui": "1.0.0"
+      },
+      "hash": "cbff7090303fac1067f69654ede33d11e2ccd0c1"
+    },
     "com.hurricanevrextensions.simulator": {
       "version": "https://github.com/Gothic-UnZENity-Project/hvr-simulator.git",
       "depth": 0,
@@ -53,7 +62,7 @@
       }
     },
     "com.unity.ide.rider": {
-      "version": "3.0.28",
+      "version": "3.0.31",
       "depth": 0,
       "source": "registry",
       "dependencies": {
@@ -296,7 +305,7 @@
       "depth": 0,
       "source": "git",
       "dependencies": {},
-      "hash": "3ff64de6bb164cad8e03fe8f48a9f82e0e1183f6"
+      "hash": "4e690db3f64fae1b17f1ac25ee380c22d58e3f3c"
     },
     "com.unity.modules.ai": {
       "version": "1.0.0",

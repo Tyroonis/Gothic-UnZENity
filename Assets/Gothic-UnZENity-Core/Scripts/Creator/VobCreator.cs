@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
-using GUZ.Core.Caches;
 using GUZ.Core.Context;
 using GUZ.Core.Creator.Meshes.V2;
 using GUZ.Core.Demo;
@@ -49,6 +48,10 @@ namespace GUZ.Core.Creator
             VirtualObjectType.zCVobAnimate
         };
 
+        private static GameObject _vobsGo;
+        private static GameObject _teleportGo;
+        private static GameObject _nonTeleportGo;
+
         private static int _totalVObs;
         private static int _vobsPerFrame;
         private static int _createdCount;
@@ -62,36 +65,29 @@ namespace GUZ.Core.Creator
 
         private static void PostWorldLoaded(GameObject playerGo)
         {
-            // We need to check for all Sounds once, if they need to be activated as they're next to player.
-            // As CullingGroup only triggers deactivation once player spawns, but not activation.
-            var loc = Camera.main!.transform.position;
-            foreach (var sound in LookupCache.VobSoundsAndDayTime.Where(i => i != null))
+            /*
+             * We need to set the Teleportation area after adding mesh to VOBs.
+             */
+            var interactionManager = GameGlobals.Scene.InteractionManager.GetComponent<XRInteractionManager>();
+            var teleportationArea = _teleportGo.AddComponent<TeleportationArea>();
+            if (interactionManager != null)
             {
-                var soundLoc = sound.transform.position;
-                var soundDist = sound.GetComponent<AudioSource>().maxDistance;
-                var dist = UnityEngine.Vector3.Distance(loc, soundLoc);
-
-                if (dist < soundDist)
-                {
-                    sound.SetActive(true);
-                }
+                teleportationArea.interactionManager = interactionManager;
             }
         }
 
-        public static async Task CreateAsync(GameConfiguration config, LoadingManager loading, GameObject rootTeleport,
-            GameObject rootNonTeleport, List<IVirtualObject> vobs, int vobsPerFrame)
+        public static async Task CreateAsync(GameConfiguration config, LoadingManager loading, List<IVirtualObject> vobs, int vobsPerFrame)
         {
             Stopwatch stopwatch = new();
             stopwatch.Start();
-            PreCreateVobs(vobs, rootTeleport, rootNonTeleport, vobsPerFrame);
+            PreCreateVobs(vobs, vobsPerFrame);
             await CreateVobs(config, loading, vobs);
             PostCreateVobs();
             stopwatch.Stop();
             Debug.Log($"Created vobs in {stopwatch.Elapsed.TotalSeconds} s");
         }
 
-        private static void PreCreateVobs(List<IVirtualObject> vobs, GameObject rootTeleport,
-            GameObject rootNonTeleport, int vobsPerFrame)
+        private static void PreCreateVobs(List<IVirtualObject> vobs, int vobsPerFrame)
         {
             _totalVObs = GetTotalVobCount(vobs);
 
@@ -99,16 +95,17 @@ namespace GUZ.Core.Creator
             _cullingVobObjects.Clear();
             _vobsPerFrame = vobsPerFrame;
 
-            var vobRootTeleport = new GameObject("Vobs");
-            var vobRootNonTeleport = new GameObject("Vobs");
-            vobRootTeleport.SetParent(rootTeleport);
-            vobRootNonTeleport.SetParent(rootNonTeleport);
+            _vobsGo = new GameObject("VOBs");
+            _teleportGo = new GameObject("Teleport");
+            _nonTeleportGo = new GameObject("NonTeleport");
+            _teleportGo.SetParent(_vobsGo);
+            _nonTeleportGo.SetParent(_vobsGo);
 
             _parentGosTeleport = new Dictionary<VirtualObjectType, GameObject>();
             _parentGosNonTeleport = new Dictionary<VirtualObjectType, GameObject>();
 
-            CreateParentVobObjectTeleport(vobRootTeleport);
-            CreateParentVobObjectNonTeleport(vobRootNonTeleport);
+            CreateParentVobObjectTeleport(_teleportGo);
+            CreateParentVobObjectNonTeleport(_nonTeleportGo);
         }
 
         private static int GetTotalVobCount(List<IVirtualObject> vobs)
@@ -124,7 +121,7 @@ namespace GUZ.Core.Creator
                 GameObject go = null;
 
                 // Debug - Skip loading if not wanted.
-                if (config.SpawnWorldObjectTypes.IsEmpty() || config.SpawnWorldObjectTypes.Contains(vob.Type))
+                if (config.SpawnVOBTypes.Value.IsEmpty() || config.SpawnVOBTypes.Value.Contains(vob.Type))
                 {
                     go = reparent ? LoadVob(config, vob, parent) : LoadVob(config, vob);
                 }
@@ -171,7 +168,7 @@ namespace GUZ.Core.Creator
                     if (config.EnableGameSounds)
                     {
                         go = CreateSound((Sound)vob, parent);
-                        LookupCache.VobSoundsAndDayTime.Add(go);
+                        GameGlobals.SoundCulling.AddCullingEntry(go);
                     }
 
                     break;
@@ -181,7 +178,7 @@ namespace GUZ.Core.Creator
                     if (config.EnableGameSounds)
                     {
                         go = CreateSoundDaytime((SoundDaytime)vob, parent);
-                        LookupCache.VobSoundsAndDayTime.Add(go);
+                        GameGlobals.SoundCulling.AddCullingEntry(go);
                     }
 
                     break;
@@ -289,18 +286,15 @@ namespace GUZ.Core.Creator
                     if (vob.Name.EqualsIgnoreCase(Constants.DaedalusHeroInstanceName))
                     {
                         GameGlobals.Scene.SetStart(vob.Position.ToUnityVector(), vob.Rotation.ToUnityQuaternion());
-
                         break;
                     }
 
-                    if (!config.SpawnOldCampNpcs)
+                    if (!config.EnableNpcs)
                     {
                         break;
                     }
 
-                    var npcSymbol = GameData.GothicVm.GetSymbolByName(vob.Name);
-                    var newNpc = NpcCreator.InitializeNpc(npcSymbol.Index);
-
+                    go = CreateNpc((ZenKit.Vobs.Npc)vob);
                     break;
                 }
                 case VirtualObjectType.zCVobScreenFX:
@@ -391,8 +385,7 @@ namespace GUZ.Core.Creator
 
         private static void PostCreateVobs()
         {
-            GameGlobals.MeshCulling.PrepareVobCulling(_cullingVobObjects);
-            GameGlobals.SoundCulling.PrepareSoundCulling(LookupCache.VobSoundsAndDayTime);
+            GameGlobals.VobMeshCulling.PrepareVobCulling(_cullingVobObjects);
 
             _vobTreeCache.ClearAndReleaseMemory();
 
@@ -441,11 +434,19 @@ namespace GUZ.Core.Creator
                     go = ResourceLoader.TryGetPrefabObject(PrefabType.Vob);
                     break;
                 case VirtualObjectType.oCMobFire:
+                    go = ResourceLoader.TryGetPrefabObject(PrefabType.VobFire);
+                    break;
                 case VirtualObjectType.oCMobInter:
-                case VirtualObjectType.oCMobBed:
-                case VirtualObjectType.oCMobWheel:
-                case VirtualObjectType.oCMobSwitch:
                     go = ResourceLoader.TryGetPrefabObject(PrefabType.VobInteractable);
+                    break;
+                case VirtualObjectType.oCMobBed:
+                    go = ResourceLoader.TryGetPrefabObject(PrefabType.VobBed);
+                    break;
+                case VirtualObjectType.oCMobWheel:
+                    go = ResourceLoader.TryGetPrefabObject(PrefabType.VobWheel);
+                    break;
+                case VirtualObjectType.oCMobSwitch:
+                    go = ResourceLoader.TryGetPrefabObject(PrefabType.VobSwitch);
                     break;
                 case VirtualObjectType.oCMobDoor:
                     go = ResourceLoader.TryGetPrefabObject(PrefabType.VobDoor);
@@ -595,6 +596,8 @@ namespace GUZ.Core.Creator
                     $"There should be no! object which can't be found n:{vob.Name} i:{vob.Instance}. We need to use >PxVobItem.instance< to do it right!");
                 return null;
             }
+
+            vobObj.GetComponent<VobItemProperties>().SetData(vob, item);
 
             GuzContext.InteractionAdapter.AddItemComponent(vobObj);
 
@@ -785,25 +788,10 @@ namespace GUZ.Core.Creator
         {
             var vobObj = CreateDefaultMesh(vob, parent, true);
 
-            // We will set some default values for collider and grabbing now.
-            // Adding it now is easier than putting it on a prefab and updating it at runtime (as grabbing didn't work this way out-of-the-box).
-            // e.g. grabComp's colliders aren't recalculated if we have the XRGrabInteractable set in Prefab.
-            var grabComp = vobObj.AddComponent<XRGrabInteractable>();
-            var rigidbodyComp = vobObj.GetComponent<Rigidbody>();
-            var meshColliderComp = vobObj.GetComponentInChildren<MeshCollider>();
-
-            meshColliderComp.convex = true; // We need to set it to overcome Physics.ClosestPoint warnings.
-            vobObj.tag = Constants.ClimbableTag;
-            rigidbodyComp.isKinematic = true;
-            // Throws errors and isn't needed as we don't want to move the kinematic ladder when released.
-            grabComp.throwOnDetach = false;
-            grabComp.trackPosition = false;
-            grabComp.trackRotation = false;
-            grabComp.selectMode = InteractableSelectMode.Multiple; // With this, we can grab with both hands!
-
             return vobObj;
         }
 
+        // FIXME - Needs to be outsourced to Context.InteractionAdapter as we have different handling for XRIT and HVR.
         private static GameObject CreateSeat(IVirtualObject vob, GameObject parent = null)
         {
             //to be used for creating chairs, benches etc
@@ -1063,6 +1051,29 @@ namespace GUZ.Core.Creator
             var morph = go.AddComponent<VobAnimateMorph>();
             morph.StartAnimation(vob.Visual!.Name);
             return go;
+        }
+
+        private static GameObject CreateNpc(ZenKit.Vobs.Npc vob)
+        {
+            var npcSymbol = GameData.GothicVm.GetSymbolByName(vob.Name);
+            var newNpc = NpcCreator.InitializeNpc(npcSymbol.Index);
+
+            if (newNpc == null)
+            {
+                return null;
+            }
+
+            NpcCreator.SetSpawnPoint(newNpc, vob.Position.ToUnityVector(), vob.Rotation.ToUnityQuaternion());
+            GameGlobals.NpcMeshCulling.AddCullingEntry(newNpc);
+
+            var loadedRoutineSymbol = GameData.GothicVm.GetSymbolByName(vob.CurrentRoutine);
+            var properties = newNpc.GetComponent<NpcProperties>();
+
+            // If we get an NPC from VOBTree, it means the NPC was very close/visible when saving the game.
+            // Inside Vob, we have the information of the last executed routine. Let's exchange it instead having the initial one.
+            NpcHelper.ExchangeRoutine(newNpc, properties.NpcInstance, loadedRoutineSymbol.Index);
+
+            return newNpc;
         }
 
         private static GameObject CreateDefaultMesh(IVirtualObject vob, GameObject parent = null,

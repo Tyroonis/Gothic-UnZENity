@@ -6,7 +6,6 @@ using GUZ.Core.Manager.Settings;
 using GUZ.Core.Util;
 using GUZ.Core.World;
 using UnityEngine;
-using UnityEngine.Serialization;
 using Logger = ZenKit.Logger;
 
 namespace GUZ.Core
@@ -16,21 +15,18 @@ namespace GUZ.Core
     {
         [field: SerializeField] public GameConfiguration Config { get; set; }
 
-        [FormerlySerializedAs("xrInteractionManager")]
         public GameObject XRInteractionManager;
 
-        [FormerlySerializedAs("invalidInstallationPathMessage")]
         public GameObject InvalidInstallationPathMessage;
 
+        private FileLoggingHandler _fileLoggingHandler;
         private BarrierManager _barrierManager;
         private XRPlayerManager _xrPlayerManager;
         private XRDeviceSimulatorManager _xrSimulatorManager;
         private MusicManager _gameMusicManager;
         private LoadingManager _gameLoadingManager;
-        private FileLoggingHandler _fileLoggingHandler;
 
         public GameSettings Settings { get; private set; }
-        private bool _isInitialised;
 
         public SkyManager Sky { get; private set; }
 
@@ -46,11 +42,12 @@ namespace GUZ.Core
 
         public StationaryLightsManager Lights { get; private set; }
 
-        public VobMeshCullingManager MeshCulling { get; private set; }
+        public VobMeshCullingManager VobMeshCulling { get; private set; }
+
+        public NpcMeshCullingManager NpcMeshCulling { get; private set; }
 
         public VobSoundCullingManager SoundCulling { get; private set; }
 
-        // ReSharper disable Unity.PerformanceAnalysis
         private void Load()
         {
             // If the Gothic installation directory is not set, show an error message and exit.
@@ -65,7 +62,7 @@ namespace GUZ.Core
 
             _gameMusicManager.Init();
 
-            GuzBootstrapper.BootGothicUnZeNity(Config, Settings.GothicIPath, Settings.GothicILanguage);
+            GuzBootstrapper.BootGothicUnZeNity(Config, Settings.GothicIPath);
             Scene.LoadStartupScenes();
 
             if (Config.EnableBarrierVisual)
@@ -76,15 +73,17 @@ namespace GUZ.Core
 
         private void Awake()
         {
+            _fileLoggingHandler = new FileLoggingHandler();
+
             GameGlobals.Instance = this;
             LookupCache.Init();
 
             Textures = GetComponent<TextureManager>();
             Font = GetComponent<FontManager>();
             Settings = GameSettings.Load();
-            _fileLoggingHandler = new FileLoggingHandler(Settings);
             _gameLoadingManager = new LoadingManager();
-            MeshCulling = new VobMeshCullingManager(Config, this);
+            VobMeshCulling = new VobMeshCullingManager(Config, this);
+            NpcMeshCulling = new NpcMeshCullingManager(Config);
             SoundCulling = new VobSoundCullingManager(Config);
             _barrierManager = new BarrierManager(Config);
             Lights = new StationaryLightsManager();
@@ -99,12 +98,13 @@ namespace GUZ.Core
 
         private void Start()
         {
-            Logger.Set(Config.ZenkitLogLevel, Logging.OnZenKitLogMessage);
+            Logger.Set(Config.ZenKitLogLevel, Logging.OnZenKitLogMessage);
             DirectMusic.Logger.Set(Config.DirectMusicLogLevel, Logging.OnDirectMusicLogMessage);
 
-            _fileLoggingHandler.Init();
+            _fileLoggingHandler.Init(Settings);
             _gameLoadingManager.Init();
-            MeshCulling.Init();
+            VobMeshCulling.Init();
+            NpcMeshCulling.Init();
             SoundCulling.Init();
             Time.Init();
             Sky.Init();
@@ -115,19 +115,13 @@ namespace GUZ.Core
 
             // Just in case we forgot to disable it in scene view. ;-)
             InvalidInstallationPathMessage.SetActive(false);
+
+            Load();
         }
 
         private void Update()
         {
-            Scene.Update();
-
-            if (_isInitialised)
-            {
-                return;
-            }
-
-            _isInitialised = true;
-            Load();
+            NpcMeshCulling.Update();
         }
 
         private void FixedUpdate()
@@ -147,18 +141,20 @@ namespace GUZ.Core
 
         private void OnDrawGizmos()
         {
-            MeshCulling?.OnDrawGizmos();
+            VobMeshCulling?.OnDrawGizmos();
         }
 
         public void OnDestroy()
         {
-            MeshCulling.Destroy();
+            VobMeshCulling.Destroy();
+            NpcMeshCulling.Destroy();
             SoundCulling.Destroy();
             _fileLoggingHandler.Destroy();
 
             Settings = null;
             _gameLoadingManager = null;
-            MeshCulling = null;
+            VobMeshCulling = null;
+            NpcMeshCulling = null;
             SoundCulling = null;
             _barrierManager = null;
             Lights = null;

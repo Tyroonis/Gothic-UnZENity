@@ -161,7 +161,7 @@ namespace GUZ.Core.Vm
                 }
                 else
                 {
-                    var npcName = LookupCache.NpcCache[GameData.GothicVm.GlobalSelf.Index].Go.name;
+                    var npcName = LookupCache.NpcCache[GameData.GothicVm.GlobalSelf.Index].properties.Go.name;
                     Debug.LogWarning($"Method >{sym.Name}< not yet implemented in DaedalusVM (called on >{npcName}<).");
                 }
             }
@@ -429,7 +429,7 @@ namespace GUZ.Core.Vm
 
         public static void PrintDebug(string message)
         {
-            if (!GameGlobals.Config.EnableSpyLogs)
+            if (!GameGlobals.Config.EnableZSpyLogs)
             {
                 return;
             }
@@ -440,7 +440,7 @@ namespace GUZ.Core.Vm
 
         public static void PrintDebugCh(int channel, string message)
         {
-            if (!GameGlobals.Config.EnableSpyLogs)
+            if (!GameGlobals.Config.EnableZSpyLogs)
             {
                 return;
             }
@@ -451,7 +451,7 @@ namespace GUZ.Core.Vm
 
         public static void PrintDebugInst(string message)
         {
-            if (!GameGlobals.Config.EnableSpyLogs)
+            if (!GameGlobals.Config.EnableZSpyLogs)
             {
                 return;
             }
@@ -462,7 +462,7 @@ namespace GUZ.Core.Vm
 
         public static void PrintDebugInstCh(int channel, string message)
         {
-            if (!GameGlobals.Config.EnableSpyLogs)
+            if (!GameGlobals.Config.EnableZSpyLogs)
             {
                 return;
             }

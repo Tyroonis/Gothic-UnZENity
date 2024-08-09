@@ -23,6 +23,9 @@ namespace GUZ.Core.Globals
         public static readonly Shader ShaderBarrier = Shader.Find("Unlit/Barrier");
         public static readonly Shader ShaderThunder = Shader.Find("Unlit/ThunderShader");
 
+        // Shader properties
+        public static readonly float ShaderPropertyFocusBrightness = 10f; // Object is in focus of player. Brighten up the color by this value.
+
         public const string SceneBootstrap = "Bootstrap";
         public const string SceneGeneral = "General";
         public const string SceneMainMenu = "MainMenu";
@@ -45,7 +48,8 @@ namespace GUZ.Core.Globals
         public const string PlayerTag = "Player";
 
         public static int MeshPerFrame { get; } = 10;
-        public static int VObPerFrame { get; } = 75;
+        public static int VobsPerFrame { get; } = 75;
+        public static int NpcsPerFrame { get; } = 75;
 
         //Collection of PlayerPref entries for settings
         public const string MoveSpeedPlayerPref = "MoveSpeed";
@@ -65,9 +69,23 @@ namespace GUZ.Core.Globals
 
         public const string DaedalusHeroInstanceName = "PC_HERO"; // TODO - can be read from .ini file.
 
+
+        public static int DaedalusAIVItemStatusKey;
+        public static int DaedalusAIVItemFreqKey;
+
+        public static int DaedalusTAITNone;
+
         static Constants()
         {
             LoadingMaterial = new Material(ShaderWorldLit);
+            GlobalEventDispatcher.ZenKitBootstrapped.AddListener(Init);
+        }
+
+        private static void Init()
+        {
+            DaedalusAIVItemStatusKey = GameData.GothicVm.GetSymbolByName("AIV_ITEMSTATUS").GetInt(0);
+            DaedalusAIVItemFreqKey = GameData.GothicVm.GetSymbolByName("AIV_ITEMFREQ").GetInt(0);
+            DaedalusTAITNone = GameData.GothicVm.GetSymbolByName("TA_IT_NONE").GetInt(0);
         }
     }
 }

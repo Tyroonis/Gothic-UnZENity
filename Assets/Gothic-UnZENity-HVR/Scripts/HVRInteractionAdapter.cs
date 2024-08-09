@@ -1,14 +1,9 @@
 #if GUZ_HVR_INSTALLED
-using System.Collections;
 using System.Linq;
 using GUZ.Core.Context;
 using GUZ.Core.Globals;
 using GVR;
-using HurricaneVR.Framework.Components;
-using HurricaneVR.Framework.Core;
 using HurricaneVR.Framework.Core.Player;
-using HurricaneVR.Framework.Shared;
-using Unity.VisualScripting;
 using HurricaneVRExtensions.Simulator;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -25,10 +20,10 @@ namespace GUZ.HVR
             return CONTEXT_NAME;
         }
 
-        public GameObject CreatePlayerController(Scene scene)
+        public GameObject CreatePlayerController(Scene scene, Vector3 position = default, Quaternion rotation = default)
         {
             var newPrefab = Resources.Load<GameObject>("HVR/Prefabs/VRPlayer");
-            var go = Object.Instantiate(newPrefab);
+            var go = Object.Instantiate(newPrefab, position, rotation);
             go.name = "VRPlayer - HVR";
 
             // During normal gameplay, we need to move the VRPlayer to General scene. Otherwise, it will be created inside
@@ -53,22 +48,6 @@ namespace GUZ.HVR
             }
 
             return go;
-        }
-
-        public void SpawnPlayerToSpot(GameObject playerGo, Vector3 position, Quaternion rotation)
-        {
-            // We highjack another Component to call StartCoroutine().
-            playerGo.GetComponentInChildren<HVRTeleporter>().StartCoroutine(Wait1FrameBeforeTeleport(playerGo, position, rotation));
-        }
-
-        /// <summary>
-        /// We need to wait 1 frame (after the Player Prefab is initialized) for HVR to recognize our position change.
-        /// </summary>
-        private IEnumerator Wait1FrameBeforeTeleport(GameObject playerGo, Vector3 position, Quaternion rotation)
-        {
-            yield return new WaitForNextFrameUnit();
-
-            playerGo.GetComponentInChildren<HVRTeleporter>().Teleport(position, rotation * Vector3.forward);
         }
 
         public void CreateXRDeviceSimulator()
@@ -107,18 +86,12 @@ namespace GUZ.HVR
 
         public void AddClimbingComponent(GameObject go)
         {
-            go.AddComponent<HVRClimbable>();
-            HVRGrabbable grabbable = go.AddComponent<HVRGrabbable>();
-            grabbable.PoseType = PoseType.PhysicPoser;
+            // Currently nothing to do. Everything's set up inside oCMobLadder.prefab already.
         }
 
-        public void AddItemComponent(GameObject go, bool isLab = false)
+        public void AddItemComponent(GameObject go, bool isLab)
         {
-            // TODO - Hack for Lab.scene - Better way to get something thrown. Needs to be removed soon.
-            Rigidbody rb = go.GetComponent<Rigidbody>();
-            rb.isKinematic = false;
-
-            // FIXME - activate/deactivate culling when dragged around
+            // Currently nothing to do. Everything's set up inside oCItem.prefab already.
         }
     }
 }
